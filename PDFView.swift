@@ -142,10 +142,11 @@ struct PDFView: View {
             }
         }
     }
-    
-    extension PDFView {
-        private func generatePDF() {
-            showGenerateButton = false
+}
+
+extension PDFView {
+    private func generatePDF() {
+        showGenerateButton = false
 
             let pdfMetaData = [
                 kCGPDFContextCreator: "Flight Logbook App",
