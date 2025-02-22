@@ -1,7 +1,6 @@
 import SwiftUI
 import PDFKit
 import SwiftData
-import SwiftData
 
 @Model
 class SavedPDF {
@@ -13,51 +12,52 @@ class SavedPDF {
         self.id = UUID()
         self.fileName = fileName
         self.dateCreated = Date()
-    private func saveCurrentPDF() {
-        guard let sourceURL = currentPDFPath else { return }
+}
+    
+private func saveCurrentPDF() {
+    guard let sourceURL = currentPDFPath else { return }
+    
+    let dateFormatter = DateFormatter()
+    dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+    let fileName = "FlightLog_\(dateFormatter.string(from: Date())).pdf"
+    
+    if let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+        let destinationURL = documentsURL.appendingPathComponent(fileName)
         
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
-        let fileName = "FlightLog_\(dateFormatter.string(from: Date())).pdf"
-        
-        if let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
-            let destinationURL = documentsURL.appendingPathComponent(fileName)
-            
-            do {
-                try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
-                let savedPDF = SavedPDF(fileName: fileName)
-                modelContext.insert(savedPDF)
-                pdfDocument = nil
-                currentPDFPath = nil
-            } catch {
-                print("Error saving PDF: \(error)")
-            }
+        do {
+            try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+            let savedPDF = SavedPDF(fileName: fileName)
+            modelContext.insert(savedPDF)
+            pdfDocument = nil
+            currentPDFPath = nil
+        } catch {
+            print("Error saving PDF: \(error)")
         }
     }
-    
-    private func loadSavedPDF(fileName: String) {
-        if let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
-            let fileURL = documentsURL.appendingPathComponent(fileName)
-            if let document = PDFDocument(url: fileURL) {
-                pdfDocument = document
-                currentPDFPath = fileURL
-            }
+}
+
+private func loadSavedPDF(fileName: String) {
+    if let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+        let fileURL = documentsURL.appendingPathComponent(fileName)
+        if let document = PDFDocument(url: fileURL) {
+            pdfDocument = document
+            currentPDFPath = fileURL
         }
     }
-    
-    private func deleteSavedPDFs(at offsets: IndexSet) {
-        for index in offsets {
-            let pdfToDelete = savedPDFs[index]
-            
-            // Delete file from documents directory
-            if let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
-                let fileURL = documentsURL.appendingPathComponent(pdfToDelete.fileName)
-                try? FileManager.default.removeItem(at: fileURL)
-            }
-            
-            // Delete record from SwiftData
-            modelContext.delete(pdfToDelete)
+}
+
+private func deleteSavedPDFs(at offsets: IndexSet) {
+    for index in offsets {
+        let pdfToDelete = savedPDFs[index]
+        
+        // Delete file from documents directory
+        if let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+            let fileURL = documentsURL.appendingPathComponent(pdfToDelete.fileName)
+            try? FileManager.default.removeItem(at: fileURL)
         }
+        
+        // Delete record from SwiftData
+        modelContext.delete(pdfToDelete)
     }
 }
 
