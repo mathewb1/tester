@@ -227,6 +227,9 @@ struct PDFView: View {
             // Reset view state
             pdfDocument = nil
             currentPDFPath = nil
+            
+            // Show success message (you can add UI feedback here if desired)
+            print("PDF saved successfully as \(fileName)")
         } catch {
             print("Error saving PDF: \(error)")
         }
