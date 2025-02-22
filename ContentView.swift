@@ -49,5 +49,5 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
-        .modelContainer(for: [FlightLogEntry.self, Aircraft.self, Airfield.self, Pilot.self], inMemory: true)
+        .modelContainer(for: [FlightLogEntry.self, Aircraft.self, Airfield.self, Pilot.self, SavedPDF.self], inMemory: true)
 }

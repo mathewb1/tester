@@ -12,7 +12,8 @@ struct LogbookApp: App {
                 FlightLogEntry.self,
                 Aircraft.self,
                 Airfield.self,
-                Pilot.self
+                Pilot.self,
+                SavedPDF.self
             ])
             
             let modelConfiguration = ModelConfiguration(

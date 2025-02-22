@@ -14,6 +14,10 @@ class SavedPDF {
         self.dateCreated = Date()
     }
 }
+#Preview {
+    PDFView()
+        .modelContainer(for: [FlightLogEntry.self, SavedPDF.self], inMemory: true)
+}
 
 struct PDFView: View {
     @Environment(\.modelContext) private var modelContext
