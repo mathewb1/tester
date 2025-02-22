@@ -1,6 +1,7 @@
 import SwiftUI
 import PDFKit
 import SwiftData
+import UIKit
 
 @Model
 class SavedPDF {
@@ -15,6 +16,11 @@ class SavedPDF {
     }
 }
 
+#Preview {
+    PDFView()
+        .modelContainer(for: [FlightLogEntry.self, SavedPDF.self], inMemory: true)
+}
+
 struct PDFView: View {
     @Environment(\.modelContext) private var modelContext
     @Query private var flightLogs: [FlightLogEntry]
@@ -22,6 +28,7 @@ struct PDFView: View {
     @State private var pdfDocument: PDFDocument?
     @State private var showGenerateButton = true
     @State private var currentPDFPath: URL?
+    @State private var showShareSheet = false
     
     var body: some View {
         NavigationView {
@@ -32,17 +39,33 @@ struct PDFView: View {
                 if let document = pdfDocument {
                     VStack {
                         PDFKitView(document: document)
-                        Button(action: saveCurrentPDF) {
-                            Text("Save PDF")
-                                .font(.headline)
-                                .padding()
-                                .background(Color.blue)
-                                .foregroundColor(.white)
-                                .cornerRadius(10)
+                        HStack {
+                            Button(action: saveCurrentPDF) {
+                                Text("Save PDF")
+                                    .font(.headline)
+                                    .padding()
+                                    .background(Color.blue)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(10)
+                            }
+                            
+                            Button(action: { showShareSheet = true }) {
+                                Text("Share PDF")
+                                    .font(.headline)
+                                    .padding()
+                                    .background(Color.green)
+                                    .foregroundColor(.white)
+                                    .cornerRadius(10)
+                            }
                         }
                         .padding()
                     }
                     .navigationTitle("Flight Logbook PDF")
+                    .sheet(isPresented: $showShareSheet) {
+                        if let urlToShare = currentPDFPath {
+                            ShareSheet(activityItems: [urlToShare])
+                        }
+                    }
                 } else {
                     List {
                         Section {
@@ -60,16 +83,27 @@ struct PDFView: View {
                         
                         Section("Saved PDFs") {
                             ForEach(savedPDFs) { savedPDF in
-                                Button(action: { loadSavedPDF(fileName: savedPDF.fileName) }) {
-                                    HStack {
-                                        Image(systemName: "doc.fill")
-                                        VStack(alignment: .leading) {
-                                            Text(savedPDF.fileName)
-                                                .font(.headline)
-                                            Text(savedPDF.dateCreated, style: .date)
-                                                .font(.caption)
-                                                .foregroundColor(.secondary)
+                                HStack {
+                                    Button(action: { loadSavedPDF(fileName: savedPDF.fileName) }) {
+                                        HStack {
+                                            Image(systemName: "doc.fill")
+                                            VStack(alignment: .leading) {
+                                                Text(savedPDF.fileName)
+                                                    .font(.headline)
+                                                Text(savedPDF.dateCreated, style: .date)
+                                                    .font(.caption)
+                                                    .foregroundColor(.secondary)
+                                            }
                                         }
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Button(action: {
+                                        shareSavedPDF(fileName: savedPDF.fileName)
+                                    }) {
+                                        Image(systemName: "square.and.arrow.up")
+                                            .foregroundColor(.blue)
                                     }
                                 }
                             }
@@ -184,7 +218,6 @@ struct PDFView: View {
             }
         }
         
-        // Save to temporary file and set up the document
         let temporaryDirectoryURL = FileManager.default.temporaryDirectory
         let temporaryFileURL = temporaryDirectoryURL.appendingPathComponent(UUID().uuidString + ".pdf")
         
@@ -221,12 +254,12 @@ struct PDFView: View {
             let savedPDF = SavedPDF(fileName: fileName)
             modelContext.insert(savedPDF)
             
-            // Clean up temporary file
             try? FileManager.default.removeItem(at: sourceURL)
             
-            // Reset view state
             pdfDocument = nil
             currentPDFPath = nil
+            
+            print("PDF saved successfully as \(fileName)")
         } catch {
             print("Error saving PDF: \(error)")
         }
@@ -242,6 +275,16 @@ struct PDFView: View {
             pdfDocument = document
             currentPDFPath = fileURL
         }
+    }
+    
+    private func shareSavedPDF(fileName: String) {
+        guard let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return
+        }
+        
+        let fileURL = documentsURL.appendingPathComponent(fileName)
+        currentPDFPath = fileURL
+        showShareSheet = true
     }
     
     private func deleteSavedPDFs(at offsets: IndexSet) {
@@ -269,6 +312,22 @@ struct PDFKitView: UIViewRepresentable {
     }
     
     func updateUIView(_ uiView: PDFKit.PDFView, context: Context) {
+        // No updates needed
+    }
+}
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+    
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(
+            activityItems: activityItems,
+            applicationActivities: nil
+        )
+        return controller
+    }
+    
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {
         // No updates needed
     }
 }
