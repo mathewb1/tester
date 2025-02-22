@@ -1,11 +1,73 @@
 import SwiftUI
 import PDFKit
 import SwiftData
+import SwiftData
+
+@Model
+class SavedPDF {
+    var id: UUID
+    var fileName: String
+    var dateCreated: Date
+    
+    init(fileName: String) {
+        self.id = UUID()
+        self.fileName = fileName
+        self.dateCreated = Date()
+    private func saveCurrentPDF() {
+        guard let sourceURL = currentPDFPath else { return }
+        
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        let fileName = "FlightLog_\(dateFormatter.string(from: Date())).pdf"
+        
+        if let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+            let destinationURL = documentsURL.appendingPathComponent(fileName)
+            
+            do {
+                try FileManager.default.copyItem(at: sourceURL, to: destinationURL)
+                let savedPDF = SavedPDF(fileName: fileName)
+                modelContext.insert(savedPDF)
+                pdfDocument = nil
+                currentPDFPath = nil
+            } catch {
+                print("Error saving PDF: \(error)")
+            }
+        }
+    }
+    
+    private func loadSavedPDF(fileName: String) {
+        if let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+            let fileURL = documentsURL.appendingPathComponent(fileName)
+            if let document = PDFDocument(url: fileURL) {
+                pdfDocument = document
+                currentPDFPath = fileURL
+            }
+        }
+    }
+    
+    private func deleteSavedPDFs(at offsets: IndexSet) {
+        for index in offsets {
+            let pdfToDelete = savedPDFs[index]
+            
+            // Delete file from documents directory
+            if let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first {
+                let fileURL = documentsURL.appendingPathComponent(pdfToDelete.fileName)
+                try? FileManager.default.removeItem(at: fileURL)
+            }
+            
+            // Delete record from SwiftData
+            modelContext.delete(pdfToDelete)
+        }
+    }
+}
 
 struct PDFView: View {
+    @Environment(\.modelContext) private var modelContext
     @Query private var flightLogs: [FlightLogEntry]
+    @Query private var savedPDFs: [SavedPDF]
     @State private var pdfDocument: PDFDocument?
     @State private var showGenerateButton = true
+    @State private var currentPDFPath: URL?
     
     var body: some View {
         NavigationView {
@@ -14,24 +76,65 @@ struct PDFView: View {
                     .ignoresSafeArea()
                 
                 if let document = pdfDocument {
-                    PDFKitView(document: document)
-                        .navigationTitle("Flight Logbook PDF")
-                } else {
                     VStack {
-                        if showGenerateButton {
-                            Button(action: generatePDF) {
-                                Text("Generate Flight Logbook PDF")
-                                    .font(.headline)
-                                    .padding()
-                                    .background(Color.blue)
-                                    .foregroundColor(.white)
-                                    .cornerRadius(10)
+                        PDFKitView(document: document)
+                        Button(action: saveCurrentPDF) {
+                            Text("Save PDF")
+                                .font(.headline)
+                                .padding()
+                                .background(Color.blue)
+                                .foregroundColor(.white)
+                                .cornerRadius(10)
+                        }
+                        .padding()
+                    }
+                    .navigationTitle("Flight Logbook PDF")
+                } else {
+                    List {
+                        Section {
+                            if showGenerateButton {
+                                Button(action: generatePDF) {
+                                    HStack {
+                                        Image(systemName: "plus.circle.fill")
+                                        Text("Generate New Flight Logbook PDF")
+                                    }
+                                }
+                            } else {
+                                ProgressView("Generating PDF...")
                             }
-                        } else {
-                            ProgressView("Generating PDF...")
+                        }
+                        
+                        Section("Saved PDFs") {
+                            ForEach(savedPDFs) { savedPDF in
+                                HStack {
+                                    Button(action: { loadSavedPDF(fileName: savedPDF.fileName) }) {
+                                        HStack {
+                                            Image(systemName: "doc.fill")
+                                            VStack(alignment: .leading) {
+                                                Text(savedPDF.fileName)
+                                                    .font(.headline)
+                                                Text(savedPDF.dateCreated, style: .date)
+                                                    .font(.caption)
+                                                    .foregroundColor(.secondary)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            .onDelete(perform: deleteSavedPDFs)
                         }
                     }
                     .navigationTitle("PDF Viewer")
+                }
+            }
+            .toolbar {
+                if pdfDocument == nil {
+                    EditButton()
+                } else {
+                    Button("Done") {
+                        pdfDocument = nil
+                        currentPDFPath = nil
+                    }
                 }
             }
         }
